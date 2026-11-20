@@ -66,7 +66,7 @@ details{color:var(--dim);font-size:14px}summary{cursor:pointer;min-height:44px;d
   <div class="top"><span class="brand">Ben OS</span><span id="now"></span></div>
   <h1 id="head">Loading your night</h1>
   <p class="brief" id="brief"></p>
-  <form class="cmd" id="cmdf"><input id="cmd" placeholder="Try: add edit Carter Efe clip #clips, focus 50 #kwasu, next, brief, help" aria-label="Command"><button class="go">Run</button><button type="button" id="undo">Undo</button></form>
+  <form class="cmd" id="cmdf"><input id="cmd" placeholder="Try: add edit Carter Efe clip #clips, focus 50 #python, next, brief, help" aria-label="Command"><button class="go">Run</button><button type="button" id="undo">Undo</button></form>
   <p id="out" aria-live="polite"></p>
 </div></header>
 
@@ -93,17 +93,19 @@ details{color:var(--dim);font-size:14px}summary{cursor:pointer;min-height:44px;d
 
 <script>
 {
-const KEY='benos.v1',RESIT=new Date(2027,1,20);
-const seed=()=>({sel:'kwasu',tasks:[],notes:'',focus:[],habits:{},lines:[
+const KEY='benos.v1';
+const seed=()=>({sel:'clips',tasks:[],notes:'',focus:[],habits:{},lines:[
  {id:'clips',name:'Carter Efe clips',color:'--red',st:['Hook template','Hashtag set','3 Shorts a week','Launch TikTok','1,000 subscribers']},
  {id:'python',name:'Python',color:'--blue',st:['Variables and types','Loops and conditions','Functions','Files and modules','Git and GitHub','First project']},
- {id:'kwasu',name:'KWASU resits',color:'--amber',st:Array.from({length:15},(_,i)=>'Course '+(i+1))},
  {id:'invest',name:'Index investing',color:'--green',st:['Understand ETFs','Open Kuda/Bamboo','Confirm real VOO','First buy','Monthly auto-invest']},
  {id:'fit',name:'Fitness',color:'--teal',st:['Log in Cronometer daily','Calisthenics 3x a week','Down 5 kg','Down 10 kg','Visible abs']}
 ].map(l=>({...l,st:l.st.map(t=>({t,d:false}))}))});
 let S,hist=[];
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!S.lines)S=seed();
+/* drop the old KWASU line and anything tied to it from saved data */
+S.lines=S.lines.filter(l=>l.id!=='kwasu');S.tasks=S.tasks.filter(t=>t.line!=='kwasu');S.focus=S.focus.filter(f=>f.line!=='kwasu');
+for(const d in S.habits)delete S.habits[d].study;if(S.sel==='kwasu')S.sel='clips';
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const snap=()=>{hist.push(JSON.stringify(S));if(hist.length>30)hist.shift()};
 const $=id=>document.getElementById(id);
@@ -112,16 +114,13 @@ const col=l=>getComputedStyle(document.documentElement).getPropertyValue(l.color
 const L=id=>S.lines.find(l=>l.id===id);
 const dayKey=(d=new Date())=>{const x=new Date(d-6*36e5);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
 const nextSt=l=>l.st.find(s=>!s.d);
-const HABITS=[['study','Study 4 hrs'],['clip','Post a clip'],['code','Code'],['train','Train']];
+const HABITS=[['clip','Post a clip'],['code','Code'],['train','Train']];
 
 function briefing(){
-  const k=L('kwasu'),left=k?k.st.filter(s=>!s.d).length:0,days=Math.ceil((RESIT-new Date())/864e5),weeks=Math.max(1,Math.ceil(days/7));
-  let head,lines=[];
-  if(!k)head='Your night at a glance';
-  else if(!left)head='All carryover courses cleared';
-  else if(days<0)head='Resits are under way, '+left+' courses to go';
-  else{head=weeks+' weeks to resits, '+left+' courses to clear';const pace=left/weeks;
-    lines.push(pace>1?`That's ${pace.toFixed(1)} courses a week, so you need to go faster than one a week.`:`One course a week keeps you on schedule.`)}
+  const all=S.lines.flatMap(l=>l.st),done=all.filter(s=>s.d).length;let lines=[];
+  const head=all.length?`${done} of ${all.length} stops reached across ${S.lines.length} lines`:'Your night at a glance';
+  const near=S.lines.filter(l=>nextSt(l)).sort((a,b)=>a.st.filter(s=>!s.d).length-b.st.filter(s=>!s.d).length)[0];
+  if(near)lines.push(`Closest to the end of its line: ${near.name}, next stop ${nextSt(near).t}.`);
   const open=S.tasks.filter(t=>!t.d).length,fm=focusToday();
   lines.push(`${open} open task${open==1?'':'s'}, ${fm} focus minutes tonight.`);
   const h=new Date().getHours();if(h>=20||h<6)lines.push('You’re in your night shift.');
