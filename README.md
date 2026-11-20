@@ -4,8 +4,16 @@
 
 - **Metro map:** each project is a coloured line and each milestone is a station. Tap a station to tick it off.
 - **Briefing headline:** how many stops you've reached across all lines, plus the line closest to finishing.
-- **Command line:** `add <task> #line`, `note <text>`, `focus <minutes> #line`, `done <n>`, `next`, `brief`, `undo`, `help`.
-- **Tasks, focus timer, a 7-night habit grid (post a clip, code, train) and notes.** Nights roll over at 6am.
+- **Command line:** `add <task> #line`, `note <text>` (saves to your brain), `ask <question>`, `focus <minutes> #line`, `done <n>`, `next`, `brief`, `undo`, `help`.
+- **Tasks, focus timer and a 7-night habit grid (post a clip, code, train).** Nights roll over at 6am.
+- **Second brain:** dump any thought, link or clip idea. Each note gets a title, tags and a project line, spots to-dos you can send to tonight's tasks with one tap, and links to related notes. Search and filter by tag, or ask it questions like "what clip ideas haven't I used?".
+
+### Turning on the AI
+The brain works offline with no key (local tagging, linking and search). For AI summaries, task-spotting and real answers, open **Second brain → AI settings**:
+- **Google Gemini (free):** get a key at aistudio.google.com → *Get API key*.
+- **Claude:** use a key from console.anthropic.com (paid).
+
+Paste the key, press **Test**, then **AI-organize all notes** to tidy older ones. The key is stored only on your device and is never included in backups.
 - **Backup:** data is saved in your browser. Use "Back up or restore your data" to copy it out or load it back in.
 
 Lines: `#clips`, `#python`, `#invest`, `#fit`. You can add or delete stations from the line panel.

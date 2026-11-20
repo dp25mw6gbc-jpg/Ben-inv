@@ -65,6 +65,22 @@ input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:var(--gree
 .empty{color:var(--dim);font-size:14px;margin:0 0 10px}
 details{color:var(--dim);font-size:14px}summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
 .small{font-size:13px;color:var(--dim)}
+textarea.cap{min-height:96px}
+.answer{margin-top:12px;padding:14px;border:1px solid var(--edge);border-left:4px solid var(--amber);border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.answer .src{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;white-space:normal}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.chips button,.tag{min-height:32px;padding:4px 10px;border-radius:999px;font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.chips button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+ul.brain{list-style:none;margin:0 0 12px;padding:0}
+ul.brain>li{padding:12px 0;border-bottom:1px solid var(--edge)}
+ul.brain>li.flash{background:#1d2530}
+.bh{display:flex;gap:10px;align-items:flex-start}.bh b{flex:1;overflow-wrap:anywhere}
+.bs{color:var(--dim);margin:4px 0;overflow-wrap:anywhere}
+.bm{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.bm .tag{background:none;border:1px solid var(--edge);color:var(--dim);display:inline-flex;align-items:center;min-height:28px}
+.bm .tk{border-color:var(--amber);color:var(--ink)}
+ul.brain details{margin-top:6px}ul.brain details p{white-space:pre-wrap;color:var(--ink);overflow-wrap:anywhere;margin:0 0 6px}
+a{color:var(--teal)}
 @media(max-width:600px){.cmd{flex-wrap:wrap}.cmd button{flex:1}}
 @media(prefers-reduced-motion:no-preference){.pulse{animation:p 2.4s ease-in-out infinite}@keyframes p{50%{opacity:.35}}}
 </style>
@@ -94,7 +110,21 @@ details{color:var(--dim);font-size:14px}summary{cursor:pointer;min-height:44px;d
   <div class="card"><h2 id="lineName">Line</h2><ul class="list" id="stations"></ul>
     <form class="row" id="stf"><input id="stin" placeholder="New station" aria-label="New station"><button>Add</button></form></div>
   <div class="card"><h2>Habits, last 7 nights</h2><div class="hab" id="hab"></div></div>
-  <div class="card" style="grid-column:1/-1"><h2>Notes</h2><textarea id="notes" aria-label="Notes" placeholder="Hooks, ideas, things to look up"></textarea>
+  <div class="card" style="grid-column:1/-1" id="brainCard"><h2>Second brain</h2>
+    <form id="capf"><textarea id="cap" class="cap" aria-label="Capture a thought" placeholder="Dump anything: a clip idea, a link, something you learned, a plan. Use #clips #python #invest #fit if you like."></textarea>
+      <div class="row" style="margin-top:8px"><button class="go">Save to brain</button><span class="small" id="capmsg" aria-live="polite" style="align-self:center"></span></div></form>
+    <form class="row" id="askf" style="margin-top:16px"><input id="ask" placeholder="Ask your brain: what clip ideas haven't I used? what should I do tonight?" aria-label="Ask your brain"><button class="go">Ask</button></form>
+    <div id="answer" class="answer" aria-live="polite" hidden></div>
+    <div class="row" style="margin-top:16px"><input id="bq" placeholder="Search notes" aria-label="Search notes" type="search"></div>
+    <div class="chips" id="chips"></div>
+    <ul class="brain" id="brain"></ul>
+    <details id="aiset"><summary>AI settings</summary>
+      <p>Without a key the brain still saves, tags, links and searches your notes on this device. Add a key to get AI summaries, task-spotting and real answers to questions.</p>
+      <div class="row" style="flex-wrap:wrap"><select id="aip" aria-label="AI provider" style="width:auto"><option value="">No AI (offline)</option><option value="gemini">Google Gemini (free key)</option><option value="claude">Claude (Anthropic key)</option></select>
+        <input id="aimodel" aria-label="Model" placeholder="Model" style="width:12em"></div>
+      <div class="row" style="margin-top:8px"><input id="aikey" type="password" autocomplete="off" aria-label="API key" placeholder="Paste your API key"><button id="aisave" type="button">Save</button><button id="aitest" type="button">Test</button></div>
+      <p class="small">Free Gemini key: aistudio.google.com → Get API key. Claude key: console.anthropic.com. The key stays on this device only and is never included in backups.</p>
+      <button id="reorg" type="button">AI-organize all notes</button></details>
     <details><summary>Back up or restore your data</summary><p>Copy this text somewhere safe. Paste a backup in and press Restore to load it.</p>
       <textarea id="dump" aria-label="Backup data"></textarea><div class="row"><button id="copy">Copy</button><button id="restore">Restore</button></div></details></div>
 </div></section>
@@ -114,6 +144,9 @@ if(!S||!S.lines)S=seed();
 /* drop the old KWASU line and anything tied to it from saved data */
 S.lines=S.lines.filter(l=>l.id!=='kwasu');S.tasks=S.tasks.filter(t=>t.line!=='kwasu');S.focus=S.focus.filter(f=>f.line!=='kwasu');
 for(const d in S.habits)delete S.habits[d].study;if(S.sel==='kwasu')S.sel='clips';
+/* second brain: move the old notes box into the brain as its first entry */
+const normalize=x=>{x.brain??=[];if(x.notes&&x.notes.trim()){x.brain.push({id:Date.now(),text:x.notes.trim(),title:'Notes from before the brain',summary:'',tags:['notes'],line:null,tasks:[],at:Date.now(),ai:false});x.notes=''}return x};
+normalize(S);
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const snap=()=>{hist.push(JSON.stringify(S));if(hist.length>30)hist.shift()};
 const $=id=>document.getElementById(id);
@@ -130,7 +163,7 @@ function briefing(){
   const near=S.lines.filter(l=>nextSt(l)).sort((a,b)=>a.st.filter(s=>!s.d).length-b.st.filter(s=>!s.d).length)[0];
   if(near)lines.push(`Closest to the end of its line: ${near.name}, next stop ${nextSt(near).t}.`);
   const open=S.tasks.filter(t=>!t.d).length,fm=focusToday();
-  lines.push(`${open} open task${open==1?'':'s'}, ${fm} focus minutes tonight.`);
+  lines.push(`${open} open task${open==1?'':'s'}, ${fm} focus minutes tonight, ${S.brain.length} note${S.brain.length==1?'':'s'} in your brain.`);
   const h=new Date().getHours();if(h>=20||h<6)lines.push('You’re in your night shift.');
   return {head,lines};
 }
@@ -168,7 +201,7 @@ function render(){
   const days=[...Array(7)].map((_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return dayKey(new Date(d.getTime()+6*36e5))});
   $('hab').innerHTML='<span></span>'+days.map(d=>`<b>${['Su','Mo','Tu','We','Th','Fr','Sa'][new Date(d+'T12:00').getDay()]}</b>`).join('')+
     HABITS.map(([k,n])=>`<span>${n}</span>`+days.map(d=>`<button class="${S.habits[d]?.[k]?'on':''}" data-h="${k}" data-d="${d}" aria-label="${n} ${d}"></button>`).join('')).join('');
-  if(document.activeElement!==$('notes'))$('notes').value=S.notes;
+  renderBrain();
   $('dump').value=JSON.stringify(S);
   drawMap();save();
 }
@@ -182,9 +215,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,input');i
 const addTask=(text,line)=>{snap();S.tasks.push({id:Date.now()+Math.random(),text,line:line||S.sel,d:false});render()};
 $('tf').addEventListener('submit',e=>{e.preventDefault();const v=$('tin').value.trim();if(v){addTask(v,$('tline').value);$('tin').value=''}});
 $('stf').addEventListener('submit',e=>{e.preventDefault();const v=$('stin').value.trim();if(v){snap();L(S.sel).st.push({t:v,d:false});$('stin').value='';render()}});
-let nt;$('notes').addEventListener('input',()=>{clearTimeout(nt);nt=setTimeout(()=>{S.notes=$('notes').value;save();$('dump').value=JSON.stringify(S)},400)});
 $('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('dump').value);say('Backup copied.')}catch(e){$('dump').select();say('Select-all is done, copy it manually.')}});
-$('restore').addEventListener('click',()=>{try{const x=JSON.parse($('dump').value);if(!x.lines)throw 0;snap();S=x;render();say('Backup restored. Press Undo if that was a mistake.')}catch(e){say('That backup text isn’t valid.')}});
+$('restore').addEventListener('click',()=>{try{const x=JSON.parse($('dump').value);if(!x.lines)throw 0;snap();S=normalize(x);render();say('Backup restored. Press Undo if that was a mistake.')}catch(e){say('That backup text isn’t valid.')}});
 const undo=()=>{if(!hist.length)return say('Nothing to undo.');S=JSON.parse(hist.pop());render();say('Undone.')};
 $('undo').addEventListener('click',undo);
 
@@ -201,20 +233,146 @@ $('fgo').addEventListener('click',()=>end?pause():start());
 $('freset').addEventListener('click',()=>{clearInterval(tick);end=0;remain=+$('fmin').value*60e3;$('fgo').textContent='Start';show()});
 $('fmin').addEventListener('change',()=>{if(!end){remain=+$('fmin').value*60e3;show()}});
 
+/* second brain: capture, auto-organize, link, search, ask */
+const AIKEY='benos.ai';
+const aiCfg=()=>{try{return JSON.parse(localStorage.getItem(AIKEY))||{}}catch(e){return{}}};
+const MODELS={gemini:'gemini-2.5-flash',claude:'claude-haiku-5-5'};
+const STOP=new Set('the a an and or of to in on for with is it this that my me at be are was by from as not but so if do just can will you your what how when have has get got about into than then them they its our out up off all any some more most very also need want like make made one two new use'.split(' '));
+const words=s=>(String(s).toLowerCase().match(/[a-z0-9&']+/g)||[]).filter(w=>w.length>2&&!STOP.has(w));
+const KW={clips:'clip clips carter efe youtube tiktok short shorts hook hooks stream streamer twitch edit editing video thumbnail views subscribers channel upload capcut',
+ python:'python code coding loop loops function functions git github app bug script programming variable html javascript',
+ invest:'invest investing etf etfs voo s&p stock stocks bamboo kuda money dividend index fund naira dollar',
+ fit:'gym train training workout calisthenics abs weight cronometer protein run pushups pullups diet calories fat'};
+function guessLine(text){const ws=words(text),tag=(text.match(/#(\w+)/)||[])[1];const t=findLine(tag?.toLowerCase());if(t)return t.id;
+  let best=null,bs=0;for(const l of S.lines){const kw=new Set(words((KW[l.id]||'')+' '+l.name));const sc=ws.filter(w=>kw.has(w)).length;if(sc>bs){bs=sc;best=l.id}}return best}
+function localOrganize(text){
+  const first=text.split('\n').find(x=>x.trim())||text;const title=first.replace(/#\w+/g,'').trim().slice(0,70)||'Untitled';
+  const tags=[...new Set([...(text.match(/#(\w+)/g)||[]).map(t=>t.slice(1).toLowerCase()),...(/https?:\/\//.test(text)?['link']:[])])];
+  const tasks=[...text.matchAll(/(?:^|[\s,;(])(?:-\s*\[\s?\]|todo:?|to do:?|need to|must|remember to|i should|don'?t forget to)\s+([^.,;!?\n]+)/gi)].map(m=>m[1].replace(/#\w+/g,'').trim()).filter(x=>x.length>2).map(x=>x[0].toUpperCase()+x.slice(1)).slice(0,5);
+  return {title,summary:'',tags,line:guessLine(text),tasks};
+}
+const WC=new Map(),wset=n=>{const k=n.text+'|'+n.tags.join(' ');let c=WC.get(n.id);if(!c||c.k!==k){c={k,s:new Set(words(k))};WC.set(n.id,c)}return c.s};
+const sim=(a,b)=>{const A=wset(a),B=wset(b);if(!A.size||!B.size)return 0;let i=0;for(const w of A)if(B.has(w))i++;return i/(A.size+B.size-i)+(a.line&&a.line===b.line?.08:0)};
+const related=n=>S.brain.filter(o=>o.id!==n.id).map(o=>[o,sim(n,o)]).filter(x=>x[1]>.12).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
+function searchBrain(q,k=8){const qs=words(q);if(!qs.length)return S.brain.slice(-k).reverse();
+  return S.brain.map(n=>{const hay=words(n.title+' '+n.text+' '+n.summary+' '+n.tags.join(' ')+' '+(L(n.line)?.name||''));const sc=qs.reduce((a,w)=>a+hay.filter(h=>h.startsWith(w)||w.startsWith(h)&&h.length>3).length,0);return [n,sc]})
+   .filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]||b[0].at-a[0].at).slice(0,k).map(x=>x[0])}
+
+async function ai(prompt,json){
+  const c=aiCfg();if(!c.p||!c.key)throw new Error('No AI key set. Open AI settings in the Second brain card.');
+  const model=c.model||MODELS[c.p];let r,j;
+  if(c.p==='gemini'){
+    r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(c.key)}`,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:json?{responseMimeType:'application/json'}:{}})});
+    j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error?.message||'Gemini error '+r.status);
+    return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');
+  }
+  r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':c.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model,max_tokens:1200,messages:[{role:'user',content:prompt}]})});
+  j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error?.message||'Claude error '+r.status);
+  return (j.content||[]).map(b=>b.text||'').join('');
+}
+const parseJSON=t=>{const a=t.indexOf('{'),b=t.lastIndexOf('}');return JSON.parse(t.slice(a,b+1))};
+const lineList=()=>S.lines.map(l=>`${l.id} = ${l.name}`).join('; ');
+
+async function aiOrganize(id){
+  const n=S.brain.find(x=>x.id===id);if(!n)return false;
+  const out=parseJSON(await ai(`You organize notes for Ben, a Nigerian content creator who clips Carter Efe streams, is learning Python, index investing and getting fit. He works at night.
+Read the note and reply with JSON only: {"title": short title under 8 words, "summary": one sentence, "tags": up to 4 short lowercase tags, "line": one of these ids or null (${lineList()}), "tasks": array of clear actionable to-dos found in the note (empty if none, max 5)}.
+Note:
+"""${n.text}"""`,true));
+  const m=S.brain.find(x=>x.id===id);if(!m)return false;
+  m.title=String(out.title||m.title).slice(0,90);m.summary=String(out.summary||'').slice(0,300);
+  m.tags=[...new Set([...(Array.isArray(out.tags)?out.tags:[]).map(t=>String(t).toLowerCase().replace(/^#/,'').trim()).filter(Boolean).slice(0,4),...m.tags])].slice(0,6);
+  if(L(out.line))m.line=out.line;if(Array.isArray(out.tasks))m.tasks=out.tasks.map(String).filter(Boolean).slice(0,5);m.ai=true;
+  save();render();return true;
+}
+function capture(text){
+  text=text.trim();if(!text)return;snap();
+  const n={id:Date.now()+Math.random(),text,...localOrganize(text),at:Date.now(),ai:false};S.brain.push(n);render();
+  if(aiCfg().key){$('capmsg').textContent='Saved. AI is organizing it…';aiOrganize(n.id).then(()=>$('capmsg').textContent='Saved and organized.').catch(e=>$('capmsg').textContent='Saved. AI couldn’t organize it: '+e.message)}
+  else $('capmsg').textContent='Saved and tagged on this device.';
+}
+$('capf').addEventListener('submit',e=>{e.preventDefault();capture($('cap').value);$('cap').value=''});
+$('cap').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();$('capf').requestSubmit()}});
+
+let bf={q:'',tag:''};
+function renderBrain(){
+  const tags={};S.brain.forEach(n=>{n.tags.forEach(t=>tags[t]=(tags[t]||0)+1);if(n.line)tags['#'+n.line]=(tags['#'+n.line]||0)+1});
+  const top=Object.entries(tags).sort((a,b)=>b[1]-a[1]).slice(0,14);
+  $('chips').innerHTML=top.length?`<button data-tag="" aria-pressed="${!bf.tag}">All ${S.brain.length}</button>`+top.map(([t,c])=>`<button data-tag="${esc(t)}" aria-pressed="${bf.tag===t}">${esc(t.startsWith('#')?(L(t.slice(1))?.name||t):t)} <span class="n">${c}</span></button>`).join(''):'';
+  let list=bf.q?searchBrain(bf.q,50):S.brain.slice().reverse();
+  if(bf.tag)list=list.filter(n=>bf.tag.startsWith('#')?n.line===bf.tag.slice(1):n.tags.includes(bf.tag));
+  const link=s=>esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
+  $('brain').innerHTML=list.slice(0,60).map(n=>{const ln=L(n.line),rel=related(n);
+    return `<li id="bn${String(n.id).replace('.','_')}"><div class="bh">${ln?`<span class="dot" style="background:${col(ln)};margin-top:7px"></span>`:''}<b>${esc(n.title)}</b><span class="n">${new Date(n.at).toLocaleDateString([], {day:'numeric',month:'short'})}${n.ai?' · AI':''}</span><button class="x" data-dn="${n.id}" aria-label="Delete note">✕</button></div>`+
+    (n.summary?`<p class="bs">${esc(n.summary)}</p>`:'')+
+    `<div class="bm">${n.tags.map(t=>`<button class="tag" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}${n.tasks.map((t,i)=>`<button class="tag tk" data-mk="${n.id}" data-i="${i}" title="Add to tonight's tasks">＋ ${esc(t)}</button>`).join('')}</div>`+
+    `<details><summary>Full note${rel.length?` · linked to ${rel.length}`:''}</summary><p>${link(n.text)}</p>${rel.length?`<div class="bm"><span class="small">Linked:</span>${rel.map(o=>`<button class="tag" data-go="${o.id}">${esc(o.title)}</button>`).join('')}</div>`:''}</details></li>`}).join('')||
+    `<li class="empty">${S.brain.length?'No notes match.':'Your brain is empty. Save your first thought above, or type note &lt;text&gt; in the command line.'}</li>`;
+}
+const goNote=id=>{bf={q:'',tag:''};$('bq').value='';renderBrain();const el=$('bn'+String(id).replace('.','_'));if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('flash');el.querySelector('details')?.setAttribute('open','');setTimeout(()=>el.classList.remove('flash'),1600)}};
+$('brainCard').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
+  if(d.tag!==undefined){e.stopPropagation();bf.tag=bf.tag===d.tag?'':d.tag;renderBrain()}
+  else if(d.dn){e.stopPropagation();snap();S.brain=S.brain.filter(n=>String(n.id)!==d.dn);render();say('Note deleted. Press Undo to bring it back.')}
+  else if(d.mk){e.stopPropagation();const n=S.brain.find(x=>String(x.id)===d.mk);if(!n)return;const t=n.tasks[+d.i];addTask(t,n.line||S.sel);n.tasks.splice(+d.i,1);render();say(`Added “${t}” to tonight’s tasks.`)}
+  else if(d.go){e.stopPropagation();goNote(+d.go)}});
+let bqt;$('bq').addEventListener('input',()=>{clearTimeout(bqt);bqt=setTimeout(()=>{bf.q=$('bq').value.trim();renderBrain()},200)});
+
+async function askBrain(q){
+  q=q.trim();if(!q)return;const box=$('answer');box.hidden=false;
+  const hits=searchBrain(q,10),ctx=hits.length?hits:S.brain.slice(-10).reverse();
+  const src=list=>list.length?`<div class="src"><span class="small">From your notes:</span>${list.map((n,i)=>`<button class="tag" data-go="${n.id}">${i+1}. ${esc(n.title)}</button>`).join('')}</div>`:'';
+  if(!aiCfg().key){box.innerHTML=(hits.length?`Best matches for “${esc(q)}”. Add an AI key in AI settings to get a real answer.`:`Nothing in your notes matches “${esc(q)}” yet.`)+src(hits);return}
+  box.textContent='Thinking…';
+  const goals=S.lines.map(l=>`- ${l.name}: ${l.st.filter(s=>s.d).length}/${l.st.length} stops done, next: ${nextSt(l)?.t||'complete'}`).join('\n');
+  const tasks=S.tasks.filter(t=>!t.d).map(t=>`- ${t.text} (${L(t.line)?.name||''})`).join('\n')||'none';
+  const notes=ctx.map((n,i)=>`[${i+1}] ${n.title} (${new Date(n.at).toDateString()}${n.line?', '+(L(n.line)?.name||''):''})\n${n.text}`).join('\n\n')||'none yet';
+  try{
+    const a=await ai(`You are Ben's second brain inside his Ben OS app. Ben is a Nigerian content creator who clips Carter Efe streams for YouTube/TikTok, is learning Python, index investing and getting fit, and works at night. Answer his question using his notes, goals and tasks below. Be direct and practical, plain text, no markdown headings, under 180 words. Refer to notes by number like [2]. If the notes don't cover it, say so briefly and give your best advice.
+Today: ${new Date().toDateString()}, time ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}.
+
+GOALS (project lines):
+${goals}
+
+OPEN TASKS:
+${tasks}
+
+NOTES:
+${notes}
+
+QUESTION: ${q}`);
+    const used=[...new Set((a.match(/\[(\d+)\]/g)||[]).map(x=>+x.slice(1,-1)))].map(i=>ctx[i-1]).filter(Boolean);
+    box.innerHTML=esc(a.replace(/\*\*/g,'').trim())+src(used);
+  }catch(e){box.innerHTML='AI couldn’t answer: '+esc(e.message)+src(hits)}
+}
+$('askf').addEventListener('submit',e=>{e.preventDefault();askBrain($('ask').value)});
+$('answer').addEventListener('click',e=>{const b=e.target.closest('button[data-go]');if(b)goNote(+b.dataset.go)});
+
+/* AI settings */
+const fillAI=()=>{const c=aiCfg();$('aip').value=c.p||'';$('aimodel').value=c.model||'';$('aimodel').placeholder=MODELS[c.p]||'Model';$('aikey').value=c.key||''};
+$('aip').addEventListener('change',()=>{$('aimodel').placeholder=MODELS[$('aip').value]||'Model';$('aimodel').value=''});
+$('aisave').addEventListener('click',()=>{const p=$('aip').value;try{localStorage.setItem(AIKEY,JSON.stringify({p,key:p?$('aikey').value.trim():'',model:$('aimodel').value.trim()}))}catch(e){}fillAI();say(p?'AI settings saved on this device.':'AI turned off. The brain keeps working offline.')});
+$('aitest').addEventListener('click',async()=>{$('aisave').click();say('Testing AI…');try{const t=await ai('Reply with exactly: Ben OS brain online');say('AI says: '+t.trim().slice(0,80))}catch(e){say('AI test failed: '+e.message)}});
+$('reorg').addEventListener('click',async()=>{if(!aiCfg().key)return say('Add an AI key first.');const ids=S.brain.filter(n=>!n.ai).map(n=>n.id);if(!ids.length)return say('Every note is already AI-organized.');
+  snap();let ok=0;for(const [i,id] of ids.entries()){say(`Organizing ${i+1} of ${ids.length}…`);try{if(await aiOrganize(id))ok++}catch(e){say('Stopped: '+e.message);return}}say(`Organized ${ok} note${ok==1?'':'s'}.`)});
+fillAI();
+
 /* command line */
 const say=t=>$('out').textContent=t;
 const findLine=w=>w&&S.lines.find(l=>l.id.startsWith(w)||l.name.toLowerCase().startsWith(w));
 function run(raw){
   let m=raw.trim(),tag=(m.match(/#(\w+)/)||[])[1],line=findLine(tag?.toLowerCase());m=m.replace(/#\w+/,'').trim();const lo=m.toLowerCase();let r;
   if(r=lo.match(/^(add|task|todo)\s+/)){const text=m.slice(r[0].length);addTask(text,line?.id);say(`Added “${text}” to ${(line||L(S.sel)).name}.`)}
-  else if(lo.startsWith('note ')){snap();S.notes=(S.notes?S.notes+'\n':'')+'• '+m.slice(5);render();say('Added to notes.')}
+  else if(r=lo.match(/^(note|idea|save|remember)\s+/)){capture(raw.trim().slice(r[0].length));say('Saved to your brain.')}
+  else if(r=lo.match(/^ask\s+/)){const q=m.slice(r[0].length);$('ask').value=q;askBrain(q);say('Asking your brain, answer is in the Second brain card.')}
   else if(r=lo.match(/^(focus|timer)\s*(\d+)?/)){start(r[2]?+r[2]:0,line?.id);say(`Focus started: ${$('fmin').value} minutes on ${L($('fline').value).name}.`)}
   else if(r=lo.match(/^(done|tick)\s+(\d+)/)){const t=S.tasks.filter(x=>!x.d)[+r[2]-1];if(!t)return say('No open task with that number.');snap();t.d=true;render();say(`Done: ${t.text}.`)}
   else if(lo.startsWith('next'))say(S.lines.map(l=>`${l.name}: ${nextSt(l)?.t||'line complete'}`).join('\n'));
   else if(lo.startsWith('brief')){const b=briefing();say(b.head+'. '+b.lines.join(' '))}
   else if(lo==='undo')undo();
   else if(line&&!m){S.sel=line.id;render();say(`Showing ${line.name}.`)}
-  else say('Commands: add <task> #line, note <text>, focus <minutes> #line, done <number>, next, brief, undo, #line to open it.\nLines: '+S.lines.map(l=>'#'+l.id).join(' '));
+  else say('Commands: add <task> #line, note <text>, ask <question>, focus <minutes> #line, done <number>, next, brief, undo, #line to open it.\nLines: '+S.lines.map(l=>'#'+l.id).join(' '));
 }
 $('cmdf').addEventListener('submit',e=>{e.preventDefault();const v=$('cmd').value;if(v.trim()){run(v);$('cmd').value=''}});
 

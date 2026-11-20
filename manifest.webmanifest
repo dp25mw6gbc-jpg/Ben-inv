@@ -1,7 +1,7 @@
 {
   "name": "Ben OS",
   "short_name": "Ben OS",
-  "description": "Night-shift dashboard: project lines, tasks, focus timer, habits and notes.",
+  "description": "Night-shift dashboard: project lines, tasks, focus timer, habits and an AI second brain.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
