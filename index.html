@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ben OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a calm night-shift control room, terse and practical
+   IDEA: a metro map of Ben's life, with every project a line and every milestone a station
+   PICTURE: five coloured lines leaving one interchange; tap a station to tick it off
+   COLOUR and TYPE: night ground #0e1116, metro red, blue, amber, green, teal; Figtree 800 + Figtree
+   LAYOUT: briefing headline and command line, map full width, then tasks, focus and habits in columns */
+:root{color-scheme:dark;--bg:#0e1116;--panel:#161b22;--edge:#2a313b;--ink:#eef1f5;--dim:#9aa4b2;
+--red:#e6261f;--blue:#3b7bff;--amber:#ffb400;--green:#00a05a;--teal:#00b3c7}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Figtree,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,3.5vw,48px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+h1{font-size:clamp(30px,5vw,48px);line-height:1.05;font-weight:800;margin:6px 0 10px;text-wrap:balance}
+h2{font-size:20px;margin:0 0 12px;font-weight:800}
+.top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--dim);font-size:14px}
+.brand{font-weight:800;color:var(--ink)}
+.brief{color:var(--dim);max-width:70ch;margin:0}
+.cmd{display:flex;gap:8px;margin-top:18px}
+input,select,textarea,button{font:inherit;font-size:16px;color:var(--ink)}
+input,select,textarea{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:10px 12px;min-height:44px;width:100%}
+textarea{min-height:160px;resize:vertical}
+button{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:8px 14px;min-height:44px;cursor:pointer;white-space:nowrap}
+button.go{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+button:hover{border-color:var(--dim)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#out{margin:10px 0 0;color:var(--ink);font-size:15px;white-space:pre-wrap;min-height:1.5em}
+.fig{position:relative;min-height:340px}.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.fig text{font-family:Figtree,sans-serif;fill:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.legend button{display:flex;align-items:center;gap:8px}
+.legend button[aria-pressed=true]{border-color:var(--ink)}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:16px;padding:18px}
+ul.list{list-style:none;margin:0 0 12px;padding:0}
+ul.list li{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--edge)}
+ul.list li span.t{flex:1;overflow-wrap:anywhere}
+ul.list li.done span.t{color:var(--dim);text-decoration:line-through}
+input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:var(--green);flex:none}
+.x{border:0;background:none;color:var(--dim);min-width:44px;padding:0}
+.row{display:flex;gap:8px}
+.n{color:var(--dim);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.clock{font-size:clamp(44px,9vw,64px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1;margin:6px 0 12px}
+.hab{display:grid;grid-template-columns:7.5em repeat(7,minmax(0,1fr));gap:4px;align-items:center;font-size:13px}
+.hab b{font-weight:600;color:var(--dim);text-align:center}
+.hab button{min-height:36px;padding:0;border-radius:8px}
+.hab button.on{background:var(--green);border-color:var(--green)}
+.empty{color:var(--dim);font-size:14px;margin:0 0 10px}
+details{color:var(--dim);font-size:14px}summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+.small{font-size:13px;color:var(--dim)}
+@media(max-width:600px){.cmd{flex-wrap:wrap}.cmd button{flex:1}}
+@media(prefers-reduced-motion:no-preference){.pulse{animation:p 2.4s ease-in-out infinite}@keyframes p{50%{opacity:.35}}}
+</style>
+</head>
+<body>
+<header class="band"><div class="wrap">
+  <div class="top"><span class="brand">Ben OS</span><span id="now"></span></div>
+  <h1 id="head">Loading your night</h1>
+  <p class="brief" id="brief"></p>
+  <form class="cmd" id="cmdf"><input id="cmd" placeholder="Try: add edit Carter Efe clip #clips, focus 50 #kwasu, next, brief, help" aria-label="Command"><button class="go">Run</button><button type="button" id="undo">Undo</button></form>
+  <p id="out" aria-live="polite"></p>
+</div></header>
+
+<section class="band" style="padding-top:0"><div class="wrap">
+  <div class="fig" id="fig"><svg id="map" role="img" aria-label="Project lines and milestones"></svg></div>
+  <div class="legend" id="legend"></div>
+  <p class="small">Starting stations come from your current plans. Tap a station to tick it, or edit the line below. Nights roll over at 6am.</p>
+</div></section>
+
+<section class="band" style="padding-top:0"><div class="wrap grid">
+  <div class="card"><h2>Tonight's tasks</h2><ul class="list" id="tasks"></ul>
+    <form class="row" id="tf"><input id="tin" placeholder="Add a task" aria-label="New task"><select id="tline" aria-label="Line" style="width:9em"></select><button>Add</button></form></div>
+  <div class="card"><h2>Focus</h2><div class="clock" id="clock">25:00</div>
+    <div class="row" style="flex-wrap:wrap"><select id="fmin" aria-label="Minutes" style="width:7em"><option>25</option><option>50</option><option>90</option></select><select id="fline" aria-label="Focus line" style="width:9em"></select>
+    <button class="go" id="fgo">Start</button><button id="freset">Reset</button></div>
+    <p class="small" id="ftoday"></p></div>
+  <div class="card"><h2 id="lineName">Line</h2><ul class="list" id="stations"></ul>
+    <form class="row" id="stf"><input id="stin" placeholder="New station" aria-label="New station"><button>Add</button></form></div>
+  <div class="card"><h2>Habits, last 7 nights</h2><div class="hab" id="hab"></div></div>
+  <div class="card" style="grid-column:1/-1"><h2>Notes</h2><textarea id="notes" aria-label="Notes" placeholder="Hooks, ideas, things to look up"></textarea>
+    <details><summary>Back up or restore your data</summary><p>Copy this text somewhere safe. Paste a backup in and press Restore to load it.</p>
+      <textarea id="dump" aria-label="Backup data"></textarea><div class="row"><button id="copy">Copy</button><button id="restore">Restore</button></div></details></div>
+</div></section>
+
+<script>
+{
+const KEY='benos.v1',RESIT=new Date(2027,1,20);
+const seed=()=>({sel:'kwasu',tasks:[],notes:'',focus:[],habits:{},lines:[
+ {id:'clips',name:'Carter Efe clips',color:'--red',st:['Hook template','Hashtag set','3 Shorts a week','Launch TikTok','1,000 subscribers']},
+ {id:'python',name:'Python',color:'--blue',st:['Variables and types','Loops and conditions','Functions','Files and modules','Git and GitHub','First project']},
+ {id:'kwasu',name:'KWASU resits',color:'--amber',st:Array.from({length:15},(_,i)=>'Course '+(i+1))},
+ {id:'invest',name:'Index investing',color:'--green',st:['Understand ETFs','Open Kuda/Bamboo','Confirm real VOO','First buy','Monthly auto-invest']},
+ {id:'fit',name:'Fitness',color:'--teal',st:['Log in Cronometer daily','Calisthenics 3x a week','Down 5 kg','Down 10 kg','Visible abs']}
+].map(l=>({...l,st:l.st.map(t=>({t,d:false}))}))});
+let S,hist=[];
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.lines)S=seed();
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const snap=()=>{hist.push(JSON.stringify(S));if(hist.length>30)hist.shift()};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const col=l=>getComputedStyle(document.documentElement).getPropertyValue(l.color).trim();
+const L=id=>S.lines.find(l=>l.id===id);
+const dayKey=(d=new Date())=>{const x=new Date(d-6*36e5);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
+const nextSt=l=>l.st.find(s=>!s.d);
+const HABITS=[['study','Study 4 hrs'],['clip','Post a clip'],['code','Code'],['train','Train']];
+
+function briefing(){
+  const k=L('kwasu'),left=k?k.st.filter(s=>!s.d).length:0,days=Math.ceil((RESIT-new Date())/864e5),weeks=Math.max(1,Math.ceil(days/7));
+  let head,lines=[];
+  if(!k)head='Your night at a glance';
+  else if(!left)head='All carryover courses cleared';
+  else if(days<0)head='Resits are under way, '+left+' courses to go';
+  else{head=weeks+' weeks to resits, '+left+' courses to clear';const pace=left/weeks;
+    lines.push(pace>1?`That's ${pace.toFixed(1)} courses a week, so you need to go faster than one a week.`:`One course a week keeps you on schedule.`)}
+  const open=S.tasks.filter(t=>!t.d).length,fm=focusToday();
+  lines.push(`${open} open task${open==1?'':'s'}, ${fm} focus minutes tonight.`);
+  const h=new Date().getHours();if(h>=20||h<6)lines.push('You’re in your night shift.');
+  return {head,lines};
+}
+const focusToday=()=>S.focus.filter(f=>f.day===dayKey()).reduce((a,f)=>a+f.min,0);
+
+function drawMap(){
+  const s=$('map'),W=s.clientWidth,H=s.clientHeight,n=S.lines.length,gap=Math.min(64,(H-70)/(n-1)),hy=H/2,hx=22,top=hy-gap*(n-1)/2;
+  const maxDx=gap*(n-1)/2,x0=hx+maxDx+26,x1=W-18;let g='';
+  S.lines.forEach((l,i)=>{const y=top+i*gap,dx=Math.abs(y-hy),c=col(l),sel=l.id===S.sel;
+    g+=`<path d="M${hx},${hy} L${hx+dx},${y} L${x1},${y}" fill="none" stroke="${c}" stroke-width="${sel?8:6}" stroke-linecap="round" stroke-linejoin="round" opacity="${sel?1:.8}"/>`;
+    const m=l.st.length,step=m>1?(x1-x0-8)/(m-1):0,nx=nextSt(l);
+    l.st.forEach((st,j)=>{const x=x0+j*step,isN=st===nx,r=isN?8:(m>10&&W<600?4.5:6);
+      g+=`<g data-l="${l.id}" data-i="${j}" style="cursor:pointer"><title>${esc(st.t)}</title><circle cx="${x}" cy="${y}" r="${Math.max(6,Math.min(16,step/2||16))}" fill="transparent"/>`+
+      `<circle cx="${x}" cy="${y}" r="${r}" fill="${st.d?c:'#0e1116'}" stroke="${st.d?'#0e1116':c}" stroke-width="${st.d?2:3}" ${isN?'class="pulse"':''}/></g>`;
+      if(isN){const tx=Math.max(x0+40,Math.min(x,x1-50));g+=`<text x="${tx}" y="${y-14}" font-size="12" font-weight="600" text-anchor="middle">${esc(W<520&&st.t.length>18?st.t.slice(0,16)+'…':st.t)}</text>`}});
+    g+=`<text x="${x0-4}" y="${y+21}" font-size="12" opacity=".7">${esc(l.name)}</text>`});
+  g+=`<circle cx="${hx}" cy="${hy}" r="13" fill="#eef1f5" stroke="#0e1116" stroke-width="4"/>`;
+  s.innerHTML=g;
+}
+const ro=new ResizeObserver(drawMap);ro.observe($('map'));
+$('map').addEventListener('click',e=>{const g=e.target.closest('g[data-l]');if(!g)return;snap();const l=L(g.dataset.l),st=l.st[+g.dataset.i];st.d=!st.d;S.sel=l.id;render();say(`${st.d?'Ticked':'Unticked'} “${st.t}” on ${l.name}.`)});
+
+function render(){
+  const b=briefing();$('head').textContent=b.head;$('brief').textContent=b.lines.join(' ');
+  $('legend').innerHTML=S.lines.map(l=>`<button data-sel="${l.id}" aria-pressed="${l.id===S.sel}"><span class="dot" style="background:${col(l)}"></span>${esc(l.name)} <span class="n">${l.st.filter(s=>s.d).length}/${l.st.length}</span></button>`).join('');
+  const l=L(S.sel)||S.lines[0];S.sel=l.id;$('lineName').textContent=l.name;
+  $('stations').innerHTML=l.st.length?l.st.map((s,i)=>`<li class="${s.d?'done':''}"><input type="checkbox" data-st="${i}" ${s.d?'checked':''} aria-label="${esc(s.t)}"><span class="t">${esc(s.t)}</span><button class="x" data-dst="${i}" aria-label="Delete station">✕</button></li>`).join(''):'';
+  const opts=S.lines.map(l=>`<option value="${l.id}">${esc(l.name)}</option>`).join('');
+  for(const id of ['tline','fline']){const v=$(id).value;$(id).innerHTML=opts;$(id).value=v||S.sel}
+  const open=S.tasks.filter(t=>!t.d),done=S.tasks.filter(t=>t.d);
+  $('tasks').innerHTML=[...open,...done].map(t=>{const ln=L(t.line);return `<li class="${t.d?'done':''}"><input type="checkbox" data-t="${t.id}" ${t.d?'checked':''} aria-label="Done"><span class="dot" style="background:${ln?col(ln):'#9aa4b2'}"></span><span class="t">${t.d?'':'<span class="n">'+(open.indexOf(t)+1)+'</span> '}${esc(t.text)}</span><button class="x" data-dt="${t.id}" aria-label="Delete task">✕</button></li>`}).join('');
+  if(!S.tasks.length)$('tasks').innerHTML='<li class="empty">No tasks yet. Add one below or type add &lt;task&gt; in the command line.</li>';
+  if(!l.st.length)$('stations').innerHTML='<li class="empty">No stations on this line yet.</li>';
+  $('ftoday').textContent=`${focusToday()} minutes focused tonight across ${S.focus.filter(f=>f.day===dayKey()).length} sessions.`;
+  const days=[...Array(7)].map((_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return dayKey(new Date(d.getTime()+6*36e5))});
+  $('hab').innerHTML='<span></span>'+days.map(d=>`<b>${['Su','Mo','Tu','We','Th','Fr','Sa'][new Date(d+'T12:00').getDay()]}</b>`).join('')+
+    HABITS.map(([k,n])=>`<span>${n}</span>`+days.map(d=>`<button class="${S.habits[d]?.[k]?'on':''}" data-h="${k}" data-d="${d}" aria-label="${n} ${d}"></button>`).join('')).join('');
+  if(document.activeElement!==$('notes'))$('notes').value=S.notes;
+  $('dump').value=JSON.stringify(S);
+  drawMap();save();
+}
+document.addEventListener('click',e=>{const t=e.target.closest('button,input');if(!t)return;const d=t.dataset;
+  if(d.sel){S.sel=d.sel;render()}
+  else if(d.st!==undefined){snap();const s=L(S.sel).st[+d.st];s.d=!s.d;render()}
+  else if(d.dst!==undefined){snap();L(S.sel).st.splice(+d.dst,1);render();say('Station deleted. Press Undo to bring it back.')}
+  else if(d.t){snap();const k=S.tasks.find(x=>x.id==d.t);k.d=!k.d;render()}
+  else if(d.dt){snap();S.tasks=S.tasks.filter(x=>x.id!=d.dt);render();say('Task deleted. Press Undo to bring it back.')}
+  else if(d.h){snap();(S.habits[d.d]??={})[d.h]=!S.habits[d.d]?.[d.h];render()}});
+const addTask=(text,line)=>{snap();S.tasks.push({id:Date.now()+Math.random(),text,line:line||S.sel,d:false});render()};
+$('tf').addEventListener('submit',e=>{e.preventDefault();const v=$('tin').value.trim();if(v){addTask(v,$('tline').value);$('tin').value=''}});
+$('stf').addEventListener('submit',e=>{e.preventDefault();const v=$('stin').value.trim();if(v){snap();L(S.sel).st.push({t:v,d:false});$('stin').value='';render()}});
+let nt;$('notes').addEventListener('input',()=>{clearTimeout(nt);nt=setTimeout(()=>{S.notes=$('notes').value;save();$('dump').value=JSON.stringify(S)},400)});
+$('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('dump').value);say('Backup copied.')}catch(e){$('dump').select();say('Select-all is done, copy it manually.')}});
+$('restore').addEventListener('click',()=>{try{const x=JSON.parse($('dump').value);if(!x.lines)throw 0;snap();S=x;render();say('Backup restored. Press Undo if that was a mistake.')}catch(e){say('That backup text isn’t valid.')}});
+const undo=()=>{if(!hist.length)return say('Nothing to undo.');S=JSON.parse(hist.pop());render();say('Undone.')};
+$('undo').addEventListener('click',undo);
+
+/* focus timer */
+let end=0,remain=25*60e3,tick;
+const show=()=>{const ms=end?end-Date.now():remain,s=Math.max(0,Math.round(ms/1e3));$('clock').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  if(end&&ms<=0)finish()};
+let actx;const beep=()=>{try{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=660;o.connect(g);g.connect(actx.destination);g.gain.setValueAtTime(.2,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+1.2);o.start();o.stop(actx.currentTime+1.2)}catch(e){}};
+function start(min,line){try{actx??=new AudioContext()}catch(e){}if(min){$('fmin').value=String(min);if(![...$('fmin').options].some(o=>o.value==min))$('fmin').insertAdjacentHTML('beforeend',`<option>${min}</option>`),$('fmin').value=min;remain=min*60e3}
+  if(line)$('fline').value=line;end=Date.now()+remain;$('fgo').textContent='Pause';clearInterval(tick);tick=setInterval(show,250);show()}
+function pause(){remain=end-Date.now();end=0;clearInterval(tick);$('fgo').textContent='Start';show()}
+function finish(){clearInterval(tick);const min=+$('fmin').value;end=0;remain=min*60e3;$('fgo').textContent='Start';snap();S.focus.push({line:$('fline').value,min,day:dayKey()});beep();render();show();say(`Focus session done: ${min} minutes on ${L($('fline').value)?.name||'a line'}.`)}
+$('fgo').addEventListener('click',()=>end?pause():start());
+$('freset').addEventListener('click',()=>{clearInterval(tick);end=0;remain=+$('fmin').value*60e3;$('fgo').textContent='Start';show()});
+$('fmin').addEventListener('change',()=>{if(!end){remain=+$('fmin').value*60e3;show()}});
+
+/* command line */
+const say=t=>$('out').textContent=t;
+const findLine=w=>w&&S.lines.find(l=>l.id.startsWith(w)||l.name.toLowerCase().startsWith(w));
+function run(raw){
+  let m=raw.trim(),tag=(m.match(/#(\w+)/)||[])[1],line=findLine(tag?.toLowerCase());m=m.replace(/#\w+/,'').trim();const lo=m.toLowerCase();let r;
+  if(r=lo.match(/^(add|task|todo)\s+/)){const text=m.slice(r[0].length);addTask(text,line?.id);say(`Added “${text}” to ${(line||L(S.sel)).name}.`)}
+  else if(lo.startsWith('note ')){snap();S.notes=(S.notes?S.notes+'\n':'')+'• '+m.slice(5);render();say('Added to notes.')}
+  else if(r=lo.match(/^(focus|timer)\s*(\d+)?/)){start(r[2]?+r[2]:0,line?.id);say(`Focus started: ${$('fmin').value} minutes on ${L($('fline').value).name}.`)}
+  else if(r=lo.match(/^(done|tick)\s+(\d+)/)){const t=S.tasks.filter(x=>!x.d)[+r[2]-1];if(!t)return say('No open task with that number.');snap();t.d=true;render();say(`Done: ${t.text}.`)}
+  else if(lo.startsWith('next'))say(S.lines.map(l=>`${l.name}: ${nextSt(l)?.t||'line complete'}`).join('\n'));
+  else if(lo.startsWith('brief')){const b=briefing();say(b.head+'. '+b.lines.join(' '))}
+  else if(lo==='undo')undo();
+  else if(line&&!m){S.sel=line.id;render();say(`Showing ${line.name}.`)}
+  else say('Commands: add <task> #line, note <text>, focus <minutes> #line, done <number>, next, brief, undo, #line to open it.\nLines: '+S.lines.map(l=>'#'+l.id).join(' '));
+}
+$('cmdf').addEventListener('submit',e=>{e.preventDefault();const v=$('cmd').value;if(v.trim()){run(v);$('cmd').value=''}});
+
+const clk=()=>{$('now').textContent=new Date().toLocaleString([], {weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})};
+setInterval(clk,15e3);clk();render();show();
+}
+</script>
+</body>
+</html>
